@@ -1,0 +1,6 @@
+@Spotify_Autorization_Code_Flow.Presentation_HostAddress = http://localhost:5219
+
+GET {{Spotify_Autorization_Code_Flow.Presentation_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
