@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Spotify_Autorization_Code_Flow.Domain;
 
 namespace Spotify_Autorization_Code_Flow.Application.Commons.Interface.Context;
 
