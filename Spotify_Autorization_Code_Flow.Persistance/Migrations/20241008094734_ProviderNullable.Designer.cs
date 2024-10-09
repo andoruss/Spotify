@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Spotify_Autorization_Code_Flow.Persistance.Context;
@@ -11,9 +12,11 @@ using Spotify_Autorization_Code_Flow.Persistance.Context;
 namespace Spotify_Autorization_Code_Flow.Persistance.Migrations
 {
     [DbContext(typeof(ProviderDbContext))]
-    partial class ProviderDbContextModelSnapshot : ModelSnapshot
+    [Migration("20241008094734_ProviderNullable")]
+    partial class ProviderNullable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

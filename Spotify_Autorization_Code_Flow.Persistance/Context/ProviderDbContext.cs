@@ -12,7 +12,8 @@ public class ProviderDbContext : DbContext, IProviderDbContext
 
     public DbSet<Bar> Bars { get; set; }
     public DbSet<Provider> Providers { get; set; }
-
+    public DbSet<BarProvider> BarProviders { get; set; }
+ 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         return await base.SaveChangesAsync(cancellationToken);
@@ -24,13 +25,27 @@ public class ProviderDbContext : DbContext, IProviderDbContext
 
         // Configuration des relations entre les entités
         modelBuilder.Entity<Bar>()
-            .HasOne(b => b.Provider)
-            .WithOne(p => p.Bar)
-            .HasForeignKey<Provider>(p => p.BarId)
-            .OnDelete(DeleteBehavior.Cascade); // Supprime le Provider si le Bar correspondant est supprimé
+                .HasKey(b => b.BarId);
 
-        // Configuration des clés étrangères, s'il y a lieu
+        modelBuilder.Entity<BarProvider>()
+            .HasKey(bp => bp.BarProviderId);
+
+        modelBuilder.Entity<BarProvider>()
+            .HasOne(bp => bp.Bar)
+            .WithMany(b => b.BarProviders)
+            .HasForeignKey(bp => bp.BarId)
+            .OnDelete(DeleteBehavior.Cascade); // Example: Cascade delete if a Bar is deleted
+
+        modelBuilder.Entity<BarProvider>()
+            .HasOne(bp => bp.Provider)
+            .WithOne(p => p.BarProvider);
+
         modelBuilder.Entity<Provider>()
-            .HasKey(p => p.BarId);
+            .HasKey(p => p.ProviderId);
+
+        modelBuilder.Entity<BarProvider>()
+                .HasOne(bp => bp.Provider)
+                .WithOne(p => p.BarProvider)
+                .HasForeignKey<Provider>(p => p.BarProviderId);
     }
 }

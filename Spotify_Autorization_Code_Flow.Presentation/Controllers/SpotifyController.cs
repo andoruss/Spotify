@@ -6,10 +6,17 @@ using Newtonsoft.Json;
 using Spotify_Autorization_Code_Flow.Application.Bar.Commands.UpdateBarProvider;
 using Spotify_Autorization_Code_Flow.Application.Bar.Queries.GetBar;
 using Spotify_Autorization_Code_Flow.Application.Bar.Queries.GetBarWithProvider;
+using Spotify_Autorization_Code_Flow.Application.BarProvider.Commands.AddBarProvider;
+using Spotify_Autorization_Code_Flow.Application.BarProvider.Commands.UpdateBarProvider;
+using Spotify_Autorization_Code_Flow.Application.BarProvider.Queries;
+using Spotify_Autorization_Code_Flow.Application.Commons.Models;
 using Spotify_Autorization_Code_Flow.Application.DTOs;
 using Spotify_Autorization_Code_Flow.Application.Provider.Commands.AddProvider;
+using Spotify_Autorization_Code_Flow.Application.Provider.Commands.UpdateProvider;
+using Spotify_Autorization_Code_Flow.Application.Provider.Queries.GetProvider;
 using Spotify_Autorization_Code_Flow.Domain;
 using Spotify_Autorization_Code_Flow.Persistance.SpotifySettings;
+using System.Net;
 
 namespace Spotify_Autorization_Code_Flow.Presentation.Controllers;
 
@@ -33,24 +40,37 @@ public class SpotifyController : EntityController
     /// https://developer.spotify.com/dashboard/
     /// </summary>
     /// <returns></returns>
-    [HttpGet("authorize/{barId}")]
-    public async Task<ActionResult> Authorize([FromRoute] int barId)
+    [HttpGet("/bar/{barId}/provider/{providerId}/authorize/")]
+    public async Task<ActionResult> Authorize([FromRoute] int barId, [FromRoute] Guid providerId)
     {
         var queryBar = new GetBarQuery(barId);
         var findBar = await Mediator.Send(queryBar);
-
-        if(findBar == null)
+        if (findBar == null)
         {
             return NotFound("Ce bar n'existe pas");
+        }
+
+        var queryProvider = new GetProviderQuery(providerId);
+        var findProvider = await Mediator.Send(queryProvider);
+        if (findProvider == null)
+        {
+            return NotFound("Ce provider n'existe pas");
         }
 
         //paramètres de l'application spotify
         var clientId = _authenticationSettings.ClientId;
         var redirectUri = _authenticationSettings.RedirectUri;
-        var scope = "user-read-private playlist-read-private user-read-email user-library-read"; 
+        var scope = "user-read-private playlist-read-private user-read-email user-library-read";
 
+        var spotifyState = new SpotifyState
+        {
+            BarId = barId,
+            ProviderId = providerId
+        };
+        var state = JsonConvert.SerializeObject(spotifyState);
+        var encodedState = WebUtility.UrlEncode(state);
 
-        var url = $"https://accounts.spotify.com/authorize?response_type=code&client_id={clientId}&redirect_uri={redirectUri}&scope={scope}&state={barId}";
+        var url = $"https://accounts.spotify.com/authorize?response_type=code&show_dialog=true&client_id={clientId}&redirect_uri={redirectUri}&scope={scope}&state={encodedState}";
 
         return Redirect(url);
     }
@@ -60,13 +80,14 @@ public class SpotifyController : EntityController
     /// </summary>
     /// <param name="code"></param>
     [HttpGet("callback")]
-    public async Task<IActionResult> Callback([FromQuery] string code, [FromQuery] int state)
+    public async Task<IActionResult> Callback([FromQuery] string code, [FromQuery] string state)
     {
+        var stateObject = JsonConvert.DeserializeObject<SpotifyState>(state);
+
         var clientId = _authenticationSettings.ClientId;
         var clientSecret = _authenticationSettings.ClientSecret;
         var redirectUri = _authenticationSettings.RedirectUri;
 
-        
         var requestBody = new FormUrlEncodedContent(new[]
         {
             new KeyValuePair<string, string>("grant_type", "authorization_code"),
@@ -97,44 +118,52 @@ public class SpotifyController : EntityController
         // Calculer la date d'expiration du jeton d'accès
         var expiresAt = DateTime.UtcNow.AddSeconds((int)expiresIn);
 
+        //récupère le provider
+        var queryProvider = new GetProviderQuery(stateObject.ProviderId);
+        var handlerProvider = await Mediator.Send(queryProvider);
+        var provider = _mapper.Map<Provider>(handlerProvider);
 
-        var queryBar = new GetBarWithProviderQuery(state);
-        var bar = await Mediator.Send(queryBar);
-
-        if (bar == null)
+        if (provider.BarProviderId == null)
         {
-            return NotFound("Ce bar n'existe pas");
-        }
+            var barProvider = new BarProvider
+                {
+                    BarId = stateObject.BarId,
+                    ProviderId = stateObject.ProviderId,
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken,
+                    TokenType = "Bearer",
+                    ExpiresIn = expiresIn,
+                    ExpiresAt = expiresAt
+                };
 
-        var mappingBar = _mapper.Map<Bar>(bar);
+            provider.BarProviderId = barProvider.BarProviderId;
 
-        // Enregistrer ou mettre à jour les tokens dans la base de données
-        if (mappingBar.ProviderId == null)
-        {
-            var provider = new Provider
-            {
-                AccessToken = accessToken,
-                RefreshToken = refreshToken,
-                TokenType = "Bearer",
-                ExpiresIn = expiresIn,
-                ExpiresAt = expiresAt
-            };
+            //ajoute le barProvider en base
+            var queryAddProvider = new AddBarProviderCommand(barProvider);
+            var responseAdd = await Mediator.Send(queryAddProvider);
 
-            mappingBar.ProviderId = provider.ProviderId;
-            mappingBar.Provider = provider;
+            //ajout l'id dans le provider
+            var queryUpdateProvider = new UpdateProviderCommand(provider);
+            var responseUpdateProvider = await Mediator.Send(queryUpdateProvider);
         }
         else
         {
-            mappingBar.Provider.AccessToken = accessToken;
-            mappingBar.Provider.RefreshToken = refreshToken;
-            mappingBar.Provider.ExpiresIn = expiresIn;
-            mappingBar.Provider.ExpiresAt = expiresAt;
-        }    
+            var queryBarProvider = new GetBarProviderQuery((Guid)provider.BarProviderId);
+            var handlerBarProvider = await Mediator.Send(queryBarProvider);
 
-        var queryUpdateBar = new UpdateBarProviderCommand(mappingBar);
-        var barUpdate = await Mediator.Send(queryUpdateBar);
+            var barProvider = _mapper.Map<BarProvider>(handlerBarProvider);
+            barProvider.AccessToken = accessToken;
+            barProvider.RefreshToken = refreshToken;
+            barProvider.ExpiresIn = expiresIn;
+            barProvider.ExpiresAt = expiresAt;
 
-        return Ok(barUpdate);
+            var queryUpdateBarProvider = new UpdateBarProviderCommand(barProvider);
+            await Mediator.Send(queryUpdateBarProvider);
+        }
+
+        http://localhost:5219/bar/1/provider/d99b44a2-0abd-482f-b3a9-13252ef82f9f/authorize
+
+        return Ok(provider);
     }
 
 
@@ -155,7 +184,7 @@ public class SpotifyController : EntityController
             new KeyValuePair<string, string>("client_id", clientId),
             new KeyValuePair<string, string>("client_secret", clientSecret)
         });
-      
+
         //var cherhcer le bar en base
         var queryBarWithProvide = new GetBarWithProviderQuery(barId);
         var repsonseBar = await Mediator.Send(queryBarWithProvide);
@@ -166,33 +195,33 @@ public class SpotifyController : EntityController
 
         //mapper le bar et vérifie si le provider est null
         var bar = _mapper.Map<Bar>(repsonseBar);
-        if (bar.Provider == null)
-        {
-            return NotFound("Aucun provider n'est dans ce bar");
-        }
+        //if (bar.Provider == null)
+        //{
+        //    return NotFound("Aucun provider n'est dans ce bar");
+        //}
 
-        //va chercher un nouveau token
-        var response = await _httpClient.PostAsync(tokenUrl, requestBody);
-        if (!response.IsSuccessStatusCode)
-        {
-            return BadRequest("Error refreshing access token.");
-        }
+        ////va chercher un nouveau token
+        //var response = await _httpClient.PostAsync(tokenUrl, requestBody);
+        //if (!response.IsSuccessStatusCode)
+        //{
+        //    return BadRequest("Error refreshing access token.");
+        //}
 
-        var jsonResponse = await response.Content.ReadAsStringAsync();
-        dynamic tokenResponse = JsonConvert.DeserializeObject(jsonResponse);
-        var expiresAt = DateTime.UtcNow.AddSeconds((int)tokenResponse.expires_in);
+        //var jsonResponse = await response.Content.ReadAsStringAsync();
+        //dynamic tokenResponse = JsonConvert.DeserializeObject(jsonResponse);
+        //var expiresAt = DateTime.UtcNow.AddSeconds((int)tokenResponse.expires_in);
 
-        bar.Provider.AccessToken = tokenResponse.access_token;
-        bar.Provider.ExpiresIn = tokenResponse.expires_in;
-        bar.Provider.ExpiresAt = expiresAt;
+        //bar.Provider.AccessToken = tokenResponse.access_token;
+        //bar.Provider.ExpiresIn = tokenResponse.expires_in;
+        //bar.Provider.ExpiresAt = expiresAt;
 
         // Si le refresh token a changé (rare, mais possible), mettez-le à jour
-        if (tokenResponse.refresh_token != null)
-        {
-            bar.Provider.RefreshToken = tokenResponse.refresh_token;
-        }
+        //if (tokenResponse.refresh_token != null)
+        //{
+        //    bar.Provider.RefreshToken = tokenResponse.refresh_token;
+        //}
 
-        var queryUpdateBar = new UpdateBarProviderCommand(bar);
+        var queryUpdateBar = new UpdateBarCommand(bar);
         var barUpdate = await Mediator.Send(queryUpdateBar);
 
         return Ok(barUpdate);

@@ -20,7 +20,7 @@ public class GetBarWithProviderQueryHanbler : IRequestHandler<GetBarWithProvider
     public async Task<BarWithProviderResponse?> Handle(GetBarWithProviderQuery request, CancellationToken cancellationToken)
     {
         var result = await _providerDbContext.Bars
-            .Include(b => b.Provider)
+            .Include(b => b.BarProviders)
             .Where(b => b.BarId == request.Id)
             .AsNoTracking()
             .FirstOrDefaultAsync(CancellationToken.None);

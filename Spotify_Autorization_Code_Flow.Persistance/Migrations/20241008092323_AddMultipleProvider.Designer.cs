@@ -12,8 +12,8 @@ using Spotify_Autorization_Code_Flow.Persistance.Context;
 namespace Spotify_Autorization_Code_Flow.Persistance.Migrations
 {
     [DbContext(typeof(ProviderDbContext))]
-    [Migration("20241006164903_Initial")]
-    partial class Initial
+    [Migration("20241008092323_AddMultipleProvider")]
+    partial class AddMultipleProvider
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -33,22 +33,23 @@ namespace Spotify_Autorization_Code_Flow.Persistance.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("BarId"));
 
-                    b.Property<Guid?>("ProviderId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("BarId");
 
                     b.ToTable("Bars");
                 });
 
-            modelBuilder.Entity("Spotify_Autorization_Code_Flow.Domain.Provider", b =>
+            modelBuilder.Entity("Spotify_Autorization_Code_Flow.Domain.BarProvider", b =>
                 {
-                    b.Property<int>("BarId")
-                        .HasColumnType("integer");
+                    b.Property<Guid>("BarProviderId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
 
                     b.Property<string>("AccessToken")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("BarId")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
@@ -67,25 +68,61 @@ namespace Spotify_Autorization_Code_Flow.Persistance.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.HasKey("BarId");
+                    b.HasKey("BarProviderId");
 
-                    b.ToTable("Providers");
+                    b.HasIndex("BarId");
+
+                    b.ToTable("BarProviders");
                 });
 
             modelBuilder.Entity("Spotify_Autorization_Code_Flow.Domain.Provider", b =>
                 {
+                    b.Property<Guid>("ProviderId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BarProviderId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ProviderId");
+
+                    b.HasIndex("BarProviderId")
+                        .IsUnique();
+
+                    b.ToTable("Providers");
+                });
+
+            modelBuilder.Entity("Spotify_Autorization_Code_Flow.Domain.BarProvider", b =>
+                {
                     b.HasOne("Spotify_Autorization_Code_Flow.Domain.Bar", "Bar")
-                        .WithOne("Provider")
-                        .HasForeignKey("Spotify_Autorization_Code_Flow.Domain.Provider", "BarId")
+                        .WithMany("BarProviders")
+                        .HasForeignKey("BarId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Bar");
                 });
 
+            modelBuilder.Entity("Spotify_Autorization_Code_Flow.Domain.Provider", b =>
+                {
+                    b.HasOne("Spotify_Autorization_Code_Flow.Domain.BarProvider", "BarProvider")
+                        .WithOne("Provider")
+                        .HasForeignKey("Spotify_Autorization_Code_Flow.Domain.Provider", "BarProviderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BarProvider");
+                });
+
             modelBuilder.Entity("Spotify_Autorization_Code_Flow.Domain.Bar", b =>
                 {
-                    b.Navigation("Provider");
+                    b.Navigation("BarProviders");
+                });
+
+            modelBuilder.Entity("Spotify_Autorization_Code_Flow.Domain.BarProvider", b =>
+                {
+                    b.Navigation("Provider")
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

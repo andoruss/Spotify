@@ -16,8 +16,4 @@
     <ProjectReference Include="..\Spotify_Autorization_Code_Flow.Domain\Spotify_Autorization_Code_Flow.Domain.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Provider\Queries\" />
-  </ItemGroup>
-
 </Project>

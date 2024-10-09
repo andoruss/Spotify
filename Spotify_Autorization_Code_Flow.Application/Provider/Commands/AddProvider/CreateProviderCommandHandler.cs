@@ -18,7 +18,7 @@ public class CreateProviderCommandHandler : IRequestHandler<CreateProviderComman
 
     public async Task<ProviderResponse> Handle(CreateProviderCommand request, CancellationToken cancellationToken)
     {
-        await _providerDbContext.Providers.AddAsync(request.Provider);
+        await _providerDbContext.Providers.AddRangeAsync(request.Provider);
 
         await _providerDbContext.SaveChangesAsync(cancellationToken);
 

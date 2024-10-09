@@ -1,9 +1,9 @@
-﻿namespace Spotify_Autorization_Code_Flow.Application.DTOs;
+﻿using Spotify_Autorization_Code_Flow.Domain;
+
+namespace Spotify_Autorization_Code_Flow.Application.DTOs;
 
 public class BarWithProviderResponse
 {
-    public int BarId { get; set; } // Clé primaire pour identifier l'entité dans la base de données
-
-    public Guid? ProviderId { get; set; }
-    public Domain.Provider? Provider { get; set; }
+    public int BarId { get; set; }
+    public IEnumerable<Domain.BarProvider> BarProviders { get; set; }
 }

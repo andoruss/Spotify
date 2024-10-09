@@ -10,10 +10,13 @@ public class ResponseProfile : Profile
         CreateMap<Domain.Bar, BarResponse>();
         CreateMap<BarResponse, Domain.Bar>();
         CreateMap<Domain.Bar, BarWithProviderResponse>();
-            
-        CreateMap<BarWithProviderResponse, Domain.Bar>()
-            .ForMember(dest => dest.ProviderId, opt => opt.MapFrom(src => src.Provider.ProviderId));
+
+        CreateMap<BarWithProviderResponse, Domain.Bar>();
 
         CreateMap<Domain.Provider, ProviderResponse>();
+        CreateMap<ProviderResponse, Domain.Provider>();
+
+        CreateMap<Domain.BarProvider, BarProviderResponse>();
+        CreateMap<BarProviderResponse, Domain.BarProvider > ();
     }
 }
